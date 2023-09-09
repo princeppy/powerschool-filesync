@@ -1,0 +1,89 @@
+{
+  "name": "powerschoolfilesync",
+  "displayName": "PowerSchoolFileSync",
+  "description": "PowerSchool File Sync, forked from https://github.com/pgmjah/filesync-vsce",
+  "publisher": "prince",
+  "icon": "images/icon.png",
+  "author": {
+    "name": "Prince PARK",
+    "email": "prince_ppy@yahoo.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/princeppy/powerschool-filesync.git"
+  },
+  "keywords": [
+    "PowerSchool - File Synchronization",
+    "PowerSchool - File Management",
+    "PowerSchool - File Copying",
+    "PowerSchool - File Deployment"
+  ],
+  "version": "2.0.1",
+  "engines": {
+    "vscode": "^1.81.1"
+  },
+  "files": [
+    "*",
+    "fsconfig_default.json"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "psfilesync.createConfigFile",
+        "title": "PS FileSync: Create a fsconfig.json file."
+      },
+      {
+        "command": "psfilesync.toggleSyncs",
+        "title": "PS FileSync: Toggle activation of synhronizers"
+      },
+      {
+        "command": "psfilesync.startAllSyncs",
+        "title": "PS FileSync: Start all synchronizing files/directories."
+      },
+      {
+        "command": "psfilesync.stopAllSyncs",
+        "title": "PS FileSync: Stop all synchronizing files/directories."
+      }
+    ],
+    "configuration": [
+      {
+        "title": "PS FileSync",
+        "properties": {
+          "psfilesync.showStatusBarInfo": {
+            "scope": "resource",
+            "type": "boolean",
+            "default": "true",
+            "description": "Show PS-FileSync activity in the status bar"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.81.1",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "eslint": "^8.47.0",
+    "glob": "^10.3.3",
+    "mocha": "^10.2.0",
+    "typescript": "^5.1.6",
+    "@vscode/test-electron": "^2.3.4"
+  }
+}

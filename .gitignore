@@ -2,8 +2,10 @@ node_modules
 .vscode-test/
 
 **/*.vsix
+!powerschoolfilesync-2.0.1.vsix
 out
 dist
 **/test/src
 **/test/dest
 package-lock.json
+.DS_Store

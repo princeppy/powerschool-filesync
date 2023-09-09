@@ -1,0 +1,15 @@
+{
+  "configs": [
+    {
+      "name": "PowerSchool File Sync Config",
+      "enabled": false,
+      "sync": [
+        {
+          "src": "c:/some/source/folder",
+          "dest": "c:/some/dest/folder",
+          "bidir": false
+        }
+      ]
+    }
+  ]
+}
