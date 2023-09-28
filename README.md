@@ -47,7 +47,8 @@ The FileSync config file is a json object with the following layout:
 					"ignore":
 					[
 						"folder1/relative/to/src",
-						"folder2/relative/to/src"
+						"folder2/relative/to/src",
+						"~*.*"
 					],
 					"bidir":true
 				}

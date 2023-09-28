@@ -106,6 +106,16 @@ export class PSFileSync extends EventEmitter {
       return;
     }
 
+    if (-1 !== itemPath.search(".git") || -1 !== ignoreDirs.indexOf(itemPath)) {
+      this.emit("fsync_log", "dir", "ignored", { src: itemPath });
+      return;
+    }
+
+    if (ignoreDirs.some((ignoreDir) => new RegExp(ignoreDir, "gm").test(itemPath))) {
+      this.emit("fsync_log", "file", "ignored", { src: itemPath });
+      return;
+    }
+
     itemPath = paths.normalize(itemPath); //itemPath.replace(/\\/g, "/");
     let srcPath = paths.normalize(`${sync.src}/${itemPath}`);
     let destPath = paths.normalize(`${sync.dest}/${itemPath}`);

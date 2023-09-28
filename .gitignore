@@ -2,7 +2,7 @@ node_modules
 .vscode-test/
 
 **/*.vsix
-!powerschoolfilesync-2.0.1.vsix
+!powerschoolfilesync-2.0.2.vsix
 out
 dist
 **/test/src
