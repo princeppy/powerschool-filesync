@@ -7,7 +7,6 @@ export function activate(context: vscode.ExtensionContext) {
   extension = new PowerSchoolSyncExtension(context);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {
   if (extension) {
     extension.stopFileSyncs();

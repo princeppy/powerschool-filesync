@@ -1,9 +1,25 @@
 # PowerSchoolFileSync - Developer Guide
 
-## Prerequisites
+## Project Structure
 
-- Node.js 16+
-- VS Code 1.81.1+
+```
+src/
+  extension.ts              Entry point (activate/deactivate)
+  file-extension.ts         VS Code integration, commands, UI
+  file-sync.ts              Core sync engine, watchers, file copy
+  sync-tree-provider.ts     Sidebar tree view
+  fsconfig_default.json     Default config template
+images/
+  icon.png                  Extension icon
+  sidebar-icon.svg          Activity bar icon (monochrome SVG)
+dist/
+  extension.js              Bundled output (esbuild)
+  fsconfig_default.json     Copied at build time
+esbuild.js                 Build script
+eslint.config.mjs          ESLint 9 flat config
+tsconfig.json              TypeScript config (noEmit, type-check only)
+package.json               Extension manifest
+```
 
 ## Setup
 
@@ -11,15 +27,24 @@
 yarn install
 ```
 
-## Compile
+## Build Commands
 
 ```bash
-yarn compile
-# or watch mode:
-yarn watch
+yarn compile        # Type-check + lint + esbuild bundle
+yarn watch          # Parallel esbuild watch + tsc watch (for development)
+yarn check-types    # TypeScript type-check only
+yarn lint           # ESLint only
+yarn package        # Production build (minified)
 ```
 
-The `compile` script automatically cleans the `out/` folder before building.
+## Debug
+
+1. Open this project in VS Code
+2. Press **F5** to launch the Extension Development Host
+3. The `launch.json` opens a test workspace at `/Volumes/Projects/PowerSchool/Plugins/demo`
+4. Set breakpoints in `src/*.ts` -- source maps are enabled in dev builds
+
+The watch task (`yarn watch`) runs automatically as the default build task.
 
 ## Package
 
@@ -27,57 +52,24 @@ The `compile` script automatically cleans the `out/` folder before building.
 npx -y @vscode/vsce package
 ```
 
-This generates a `.vsix` file in the project root. Install it via `Extensions: Install from VSIX...` in the command palette.
+This automatically:
+1. Removes old `.vsix` files
+2. Bumps the patch version
+3. Runs production build (type-check + lint + minified esbuild)
+4. Produces `powerschoolfilesync-X.Y.Z.vsix`
 
-## Debug
+## Install
 
-1. Press `F5` to open a new VS Code window with the extension loaded
-2. Set breakpoints in `src/extension.ts` or `src/file-sync.ts`
-3. View logs in the **FileSync Output** panel
-
-## Project Structure
-
-```text
-src/
-  extension.ts          -- Entry point: activate/deactivate lifecycle
-  file-extension.ts     -- VS Code integration: commands, UI, config loading
-  file-sync.ts          -- Core sync engine: file copy, watch, delete, retry
-  fsconfig_default.json -- Template for new config files
+```bash
+code --install-extension powerschoolfilesync-X.Y.Z.vsix
 ```
 
-## Architecture
+Or in VS Code: Extensions > `...` menu > Install from VSIX.
 
-### Activation Flow
+## Architecture Notes
 
-1. VS Code checks `activationEvents: ["workspaceContains:fsconfig.json"]`
-2. If no `fsconfig.json` at workspace root, extension does not activate
-3. On activation, config is parsed but **no watchers are started**
-4. User triggers sync manually (button click) or starts watchers via command
-
-### Sync Modes
-
-**Manual mode** (default):
-
-- Click editor title button to sync one file
-- Click status bar button to sync all files
-- No `fs.watch()` handles, no background overhead
-
-**Watcher mode** (opt-in via `Start all synchronizing` command):
-
-- `fs.watch()` monitors source directories recursively
-- File changes trigger automatic copy to destination
-- Watchers are cleaned up on stop or deactivate
-
-### File Copy Strategy
-
-1. Check if source file is readable (`fs.openSync` with `"r"`)
-2. Copy with `fs.copyFileSync`
-3. On failure, retry up to 5 times with 200ms/400ms/600ms/800ms/1000ms backoff
-4. Files are only copied when source `mtime` is newer than destination
-
-## Go Further
-
-- [VS Code UX Guidelines](https://code.visualstudio.com/api/ux-guidelines/overview)
-- [Bundling Extensions](https://code.visualstudio.com/api/working-with-extensions/bundling-extension)
-- [Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)
-- [Continuous Integration](https://code.visualstudio.com/api/working-with-extensions/continuous-integration)
+- **esbuild** bundles all TypeScript into a single `dist/extension.js`. The `tsc` compiler is only used for type checking (`--noEmit`).
+- **`fsconfig_default.json`** is loaded at runtime via `fs.readFileSync(__dirname + '/fsconfig_default.json')`, so `esbuild.js` copies it to `dist/` during build.
+- **`ensureArray<T>()`** utility in `file-sync.ts` is shared across all source files.
+- **Tree refresh** is debounced (300ms) to batch rapid state changes from watchers.
+- **Watcher events** are debounced (100ms) per file to handle macOS `fs.watch` duplicates.

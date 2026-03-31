@@ -3,7 +3,8 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as paths from "path";
-import { PSFileSync, PowerSchoolSyncConfig } from "./file-sync";
+import { PSFileSync, PowerSchoolSyncConfig, ensureArray } from "./file-sync";
+import { SyncTreeProvider, SyncTreeItem } from "./sync-tree-provider";
 
 export class PowerSchoolSyncExtension {
   private _context: vscode.ExtensionContext;
@@ -11,6 +12,8 @@ export class PowerSchoolSyncExtension {
   private _sbSyncAll: vscode.StatusBarItem;
   private _fsw: vscode.FileSystemWatcher | undefined;
   private _outChan: vscode.OutputChannel;
+  private _treeProvider: SyncTreeProvider;
+  private _treeRefreshTimer: NodeJS.Timeout | undefined;
   private _active = false;
 
   constructor(context: vscode.ExtensionContext) {
@@ -24,6 +27,30 @@ export class PowerSchoolSyncExtension {
     context.subscriptions.push(vscode.commands.registerCommand("psfilesync.stopAllSyncs", this.stopFileSyncs, this));
     context.subscriptions.push(vscode.commands.registerCommand("psfilesync.syncCurrentFile", this._syncCurrentFile, this));
     context.subscriptions.push(vscode.commands.registerCommand("psfilesync.syncAllFiles", this._syncAllFiles, this));
+    context.subscriptions.push(vscode.commands.registerCommand("psfilesync.refreshTree", () => {
+      this._initFromWorkspaceRoots();
+      this._treeProvider.refresh();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand("psfilesync.syncTreeFile", (item: SyncTreeItem) => {
+      if (!item?.syncFileData) { return; }
+      const { srcPath, destPath } = item.syncFileData;
+      const destDir = paths.dirname(destPath);
+      if (!fs.existsSync(destDir)) { fs.mkdirSync(destDir, { recursive: true }); }
+      try {
+        fs.copyFileSync(srcPath, destPath);
+        const label = paths.join(paths.basename(paths.dirname(paths.dirname(destPath))), paths.basename(paths.dirname(destPath)), paths.basename(destPath));
+        this._log("🖱️ tree", "file copied", label);
+      } catch (ex: any) {
+        this._log("❌ tree", "copy failed", ex?.message);
+      }
+    }));
+
+    this._treeProvider = new SyncTreeProvider(() => this._configFiles);
+    const treeView = vscode.window.createTreeView("psfilesync.syncTree", {
+      treeDataProvider: this._treeProvider,
+      showCollapseAll: true,
+    });
+    context.subscriptions.push(treeView);
 
     this._sbSyncAll = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
     this._sbSyncAll.text = `$(sync) PSF Sync All`;
@@ -38,7 +65,7 @@ export class PowerSchoolSyncExtension {
 
   private _syncCurrentFile(): void {
     const editor = vscode.window.activeTextEditor;
-    if (!editor) {
+    if (!editor || editor.document.uri.scheme !== "file") {
       this._log("⚠️ sync", "no active file", "open a file first");
       return;
     }
@@ -49,13 +76,14 @@ export class PowerSchoolSyncExtension {
       const cfgFile = this._configFiles[cfgPath];
       for (const config of cfgFile.configs) {
         if (!config.fsync) { continue; }
-        const syncs = config.sync instanceof Array ? config.sync : [config.sync];
+        const syncs = ensureArray(config.sync);
         for (const sync of syncs) {
           const srcNorm = paths.normalize(sync.src);
           const fileNorm = paths.normalize(filePath);
           if (fileNorm.startsWith(srcNorm)) {
-            this._log("🖱️ manual", "sync current file", PSFileSync.fmtPath(filePath));
-            config.fsync.syncItem(paths.relative(srcNorm, fileNorm), sync);
+            const relPath = paths.relative(srcNorm, fileNorm);
+            this._log("🖱️ manual", "sync current file", paths.join(paths.basename(srcNorm), relPath));
+            config.fsync.syncItem(relPath, sync);
             return;
           }
         }
@@ -72,7 +100,7 @@ export class PowerSchoolSyncExtension {
       const cfgFile = this._configFiles[cfgPath];
       for (const config of cfgFile.configs) {
         if (!config.fsync || !config.enabled) { continue; }
-        const syncs = config.sync instanceof Array ? config.sync : [config.sync];
+        const syncs = ensureArray(config.sync);
         for (const sync of syncs) {
           const resolved = { ...sync };
           const cfgDir = (config as any).cfgFilePath || paths.dirname(cfgPath);
@@ -118,6 +146,7 @@ export class PowerSchoolSyncExtension {
       if (this._isAtWorkspaceRoot(e.fsPath)) {
         this._log("🗑️ config", "deleted", PSFileSync.fmtPath(e.fsPath));
         delete this._configFiles[e.fsPath];
+        this._refreshTree();
       }
     });
     this._context.subscriptions.push(this._fsw);
@@ -150,6 +179,7 @@ export class PowerSchoolSyncExtension {
   }
 
   public stopFileSyncs = (): void => {
+    if (this._treeRefreshTimer) { clearTimeout(this._treeRefreshTimer); }
     for (const cfgPath in this._configFiles) {
       const cfgFile = this._configFiles[cfgPath];
       for (const config of cfgFile.configs) {
@@ -172,13 +202,20 @@ export class PowerSchoolSyncExtension {
       for (const cfg of cfgFile.configs) {
         if (cfg.fsync) {
           cfg.fsync.on("fsync_log", this._log.bind(this));
+          cfg.fsync.on("fsync_state_change", () => this._refreshTree());
           count++;
         }
       }
       this._log("✅ config", "loaded", `${count} sync config(s) from ${PSFileSync.fmtPath(filePath)}`);
+      this._refreshTree();
     }, (err: any) => {
       this._log("❌ config", "failed to read", `${filePath} - ${err?.message || err}`);
     });
+  }
+
+  private _refreshTree(): void {
+    if (this._treeRefreshTimer) { clearTimeout(this._treeRefreshTimer); }
+    this._treeRefreshTimer = setTimeout(() => this._treeProvider.refresh(), 300);
   }
 
   private _log(type: string, action: string, data: any): void {

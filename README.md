@@ -6,22 +6,29 @@ A lightweight VS Code extension that copies files between source and destination
 
 1. Place a `fsconfig.json` file at your workspace root
 2. The extension loads on startup (only if `fsconfig.json` exists)
-3. Use the **editor title button** or **status bar button** to sync files manually
-4. Optionally start `fs.watch()` watchers for automatic sync on file changes
+3. A **sidebar tree view** shows all sync configurations and their file trees
+4. Use the **editor title button**, **status bar button**, or **tree view** to sync files manually
+5. Optionally start `fs.watch()` watchers for automatic sync on file changes
 
 The extension stays **completely dormant** in workspaces without `fsconfig.json` -- zero overhead.
 
 ## Features
 
-| Feature            | Description                                                                              |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| Manual file sync   | Click the cloud-upload button in the editor title bar to copy the currently focused file |
-| Sync all files     | Click `$(sync) PSF Sync All` in the status bar to copy every file matching config        |
-| Auto-watch mode    | Start `fs.watch()` watchers via command palette for automatic sync on changes            |
-| Ignore patterns    | Regex-based ignore patterns to skip files/directories                                    |
-| Bidirectional sync | Optionally remove files from destination that don't exist in source                      |
-| File filtering     | Sync only specific files listed in the `files` array                                     |
-| Retry on lock      | Files locked by other processes are retried with exponential backoff (5 attempts)        |
+| Feature            | Description                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| Sidebar tree view  | Activity bar panel showing sync configs, watcher status, and browsable file trees                |
+| Manual file sync   | Click the cloud-upload button in the editor title bar to copy the currently focused file         |
+| Tree file sync     | Double-click any file in the sidebar tree to copy it immediately                                 |
+| Sync all files     | Click `$(sync) PSF Sync All` in the status bar to copy every file matching config                |
+| Auto-watch mode    | Start `fs.watch()` watchers via command palette for automatic sync on changes                    |
+| Debounced watcher  | Rapid file changes are debounced (100ms) -- only the last change triggers a copy                 |
+| Copy lock          | Prevents overlapping copies of the same file during retry                                        |
+| Destination check  | Verifies destination volume/mount is reachable before starting watchers                          |
+| Ignore patterns    | Regex-based ignore patterns to skip files/directories                                            |
+| Bidirectional sync | Optionally remove files from destination that don't exist in source                              |
+| File filtering     | Sync only specific files listed in the `files` array                                             |
+| Retry on lock      | Files locked by other processes are retried with exponential backoff (5 attempts)                |
+| Clean shutdown     | All watchers, timers, and locks are cleared on deactivate -- no "Stopping Extension Hosts" delay |
 
 ## Commands
 
@@ -34,11 +41,15 @@ Open the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`):
 | `PS FileSync: Stop all synchronizing files/directories`  | Stop all active watchers                                          |
 | `PS FileSync: Sync Current File`                         | Copy the currently focused file to its destination                |
 | `PS FileSync: Sync All Files`                            | Recursively copy all files matching the config                    |
+| `PS FileSync: Refresh`                                   | Reload configs and refresh the sidebar tree view                  |
 
 ## UI Elements
 
+- **Activity bar sidebar** -- "PowerSchool File Sync" panel with sync icon. Shows config tree with watcher status indicators (green=watching, gray=stopped, red=error) and browsable file trees under each sync path.
 - **Editor title button** (`$(cloud-upload)`) -- appears when `fsconfig.json` is present. Copies the active file.
 - **Status bar button** (`$(sync) PSF Sync All`) -- appears in the bottom-left. Copies all matching files.
+- **Tree view context menu** -- right-click a config entry to Start/Stop watchers or Sync All.
+- **Tree file click** -- double-click any file in the tree to copy it to destination immediately.
 
 ## fsconfig.json
 
@@ -71,7 +82,7 @@ Place this file at the root of your workspace. The extension only looks at the w
 | Field                     | Type     | Required | Description                                                                 |
 | ------------------------- | -------- | -------- | --------------------------------------------------------------------------- |
 | `configs`                 | array    | Yes      | Array of sync configuration blocks                                          |
-| `configs[].name`          | string   | Yes      | Identifier for the config block (shown in logs)                             |
+| `configs[].name`          | string   | Yes      | Identifier for the config block (shown in logs and sidebar)                 |
 | `configs[].enabled`       | boolean  | Yes      | `true` to activate, `false` to skip                                         |
 | `configs[].sync`          | array    | Yes      | Array of source/destination sync pairs                                      |
 | `configs[].sync[].src`    | string   | Yes      | Source directory path (absolute or relative to `fsconfig.json`)             |
@@ -83,7 +94,7 @@ Place this file at the root of your workspace. The extension only looks at the w
 ### Path Resolution
 
 - Paths in `src` and `dest` can be **absolute** (`/Volumes/...`) or **relative** (`./Plugin/...`)
-- Relative paths are resolved from the directory containing `fsconfig.json`
+- Relative paths are resolved from the directory containing `fsconfig.json` at config load time
 - Multiple `configs` blocks and multiple `sync` entries per config are supported
 
 ### Ignore Patterns
@@ -102,12 +113,12 @@ Files matching `.git` are always ignored automatically.
 
 ## Log Output
 
-All activity is logged to the **FileSync Output** panel (`View > Output > FileSync Output`):
+All activity is logged to the **FileSync Output** panel (`View > Output > FileSync Output`). Logs show relative paths with the source folder name prefix (e.g. `admin/mai/managebac/config.html`).
 
 ```
-[2026-03-31 00:15:42] ✅ file copy {"src":".../admin/mai/config.html","dest":".../admin/mai/config.html"}
-[2026-03-31 00:15:42] ⏭️ file up to date {"file":".../admin/mai/styles.css"}
-[2026-03-31 00:15:43] ❌ file copy failed after 5 retries {"src":"...","dest":"...","error":"EACCES"}
+[2026-03-31 14:59:01] 👁️ watch change detected {"type":"change","file":"mai/managebac/managebac_config.html"}
+[2026-03-31 14:59:01] ✅ file copy {"file":"admin/mai/managebac/managebac_config.html"}
+[2026-03-31 14:59:01] ⏭️ file up to date {"file":"admin/mai/styles.css"}
 ```
 
 ### Log Emoji Reference
@@ -129,6 +140,21 @@ All activity is logged to the **FileSync Output** panel (`View > Output > FileSy
 | 🛑    | Stopped                                          |
 
 ## Release Notes
+
+### 3.0.x
+
+- Rebuilt from scratch with modern tooling (esbuild bundler, ESLint 9, TypeScript 5.9, VS Code 1.110)
+- Added sidebar tree view with browsable file trees and watcher status indicators
+- Double-click files in tree to copy immediately
+- Watcher debouncing (100ms) prevents duplicate copies from rapid `fs.watch` events
+- Copy lock prevents overlapping copies of the same file
+- Destination reachability check before starting watchers
+- Paths resolved to absolute at config load time (manual sync works without starting watchers)
+- Force copy on watcher events (bypasses mtime check since macOS `fs.watch` can fire before mtime updates)
+- Clean shutdown: all timers, watchers, and locks cleared on deactivate
+- Auto version bump and old `.vsix` cleanup on package
+- Relative paths in all log output for readability
+- Output panel editor no longer triggers "file not in sync config" errors
 
 ### 2.2.x
 

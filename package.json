@@ -18,9 +18,10 @@
     "PowerSchool - File Copying",
     "PowerSchool - File Deployment"
   ],
-  "version": "2.2.9",
+  "license": "MIT",
+  "version": "3.0.7",
   "engines": {
-    "vscode": "^1.81.1"
+    "vscode": "^1.110.0"
   },
   "categories": [
     "Other"
@@ -28,7 +29,7 @@
   "activationEvents": [
     "workspaceContains:fsconfig.json"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
@@ -51,6 +52,15 @@
       {
         "command": "psfilesync.syncAllFiles",
         "title": "PS FileSync: Sync All Files"
+      },
+      {
+        "command": "psfilesync.refreshTree",
+        "title": "PS FileSync: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "psfilesync.syncTreeFile",
+        "title": "PS FileSync: Sync File"
       }
     ],
     "menus": {
@@ -60,19 +70,68 @@
           "when": "psfilesync.hasConfig",
           "group": "navigation"
         }
+      ],
+      "view/title": [
+        {
+          "command": "psfilesync.refreshTree",
+          "when": "view == psfilesync.syncTree",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "psfilesync.startAllSyncs",
+          "when": "view == psfilesync.syncTree && viewItem == configEntry",
+          "group": "inline"
+        },
+        {
+          "command": "psfilesync.stopAllSyncs",
+          "when": "view == psfilesync.syncTree && viewItem == configEntry",
+          "group": "inline"
+        },
+        {
+          "command": "psfilesync.syncAllFiles",
+          "when": "view == psfilesync.syncTree && viewItem == configEntry"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "psfilesync-sidebar",
+          "title": "PowerSchool File Sync",
+          "icon": "images/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "psfilesync-sidebar": [
+        {
+          "id": "psfilesync.syncTree",
+          "name": "Sync Configurations",
+          "contextualTitle": "PowerSchool File Sync"
+        }
       ]
     },
     "configuration": []
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
-    "clean": "rm -rf out",
-    "compile": "yarn run clean && tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "vscode:prepublish": "rm -f *.vsix && yarn version --patch --no-git-tag-version && yarn run package",
+    "compile": "yarn run check-types && yarn run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "yarn run check-types && yarn run lint && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
   },
   "devDependencies": {
-    "@types/vscode": "^1.81.1",
-    "@types/node": "16.x",
-    "typescript": "^5.1.6"
+    "@types/node": "22.x",
+    "@types/vscode": "^1.110.0",
+    "esbuild": "^0.27.3",
+    "eslint": "^9.39.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
   }
 }
