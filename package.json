@@ -1,7 +1,7 @@
 {
   "name": "powerschoolfilesync",
   "displayName": "PowerSchoolFileSync",
-  "description": "PowerSchool File Sync, forked from https://github.com/pgmjah/filesync-vsce",
+  "description": "PowerSchool File Sync to enable smb file copy (automatic) btw developer and powerschool server",
   "publisher": "com-princepy",
   "icon": "images/icon.png",
   "author": {
@@ -19,7 +19,7 @@
     "PowerSchool - File Deployment"
   ],
   "license": "MIT",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "engines": {
     "vscode": "^1.110.0"
   },
