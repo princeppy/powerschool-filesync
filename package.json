@@ -18,19 +18,15 @@
     "PowerSchool - File Copying",
     "PowerSchool - File Deployment"
   ],
-  "version": "2.0.2",
+  "version": "2.2.9",
   "engines": {
     "vscode": "^1.81.1"
   },
-  "files": [
-    "*",
-    "fsconfig_default.json"
-  ],
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "workspaceContains:fsconfig.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -40,50 +36,43 @@
         "title": "PS FileSync: Create a fsconfig.json file."
       },
       {
-        "command": "psfilesync.toggleSyncs",
-        "title": "PS FileSync: Toggle activation of synhronizers"
-      },
-      {
         "command": "psfilesync.startAllSyncs",
         "title": "PS FileSync: Start all synchronizing files/directories."
       },
       {
         "command": "psfilesync.stopAllSyncs",
         "title": "PS FileSync: Stop all synchronizing files/directories."
+      },
+      {
+        "command": "psfilesync.syncCurrentFile",
+        "title": "PS FileSync: Sync Current File",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "psfilesync.syncAllFiles",
+        "title": "PS FileSync: Sync All Files"
       }
     ],
-    "configuration": [
-      {
-        "title": "PS FileSync",
-        "properties": {
-          "psfilesync.showStatusBarInfo": {
-            "scope": "resource",
-            "type": "boolean",
-            "default": "true",
-            "description": "Show PS-FileSync activity in the status bar"
-          }
+    "menus": {
+      "editor/title": [
+        {
+          "command": "psfilesync.syncCurrentFile",
+          "when": "psfilesync.hasConfig",
+          "group": "navigation"
         }
-      }
-    ]
+      ]
+    },
+    "configuration": []
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "yarn run compile && yarn run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "clean": "rm -rf out",
+    "compile": "yarn run clean && tsc -p ./",
+    "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
     "@types/vscode": "^1.81.1",
-    "@types/mocha": "^10.0.1",
     "@types/node": "16.x",
-    "@typescript-eslint/eslint-plugin": "^6.4.1",
-    "@typescript-eslint/parser": "^6.4.1",
-    "eslint": "^8.47.0",
-    "glob": "^10.3.3",
-    "mocha": "^10.2.0",
-    "typescript": "^5.1.6",
-    "@vscode/test-electron": "^2.3.4"
+    "typescript": "^5.1.6"
   }
 }

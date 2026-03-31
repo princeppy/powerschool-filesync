@@ -1,42 +1,83 @@
-# Welcome to your VS Code Extension
+# PowerSchoolFileSync - Developer Guide
 
-## What's in the folder
+## Prerequisites
 
-* This folder contains all of the files necessary for your extension.
-* `package.json` - this is the manifest file in which you declare your extension and command.
-  * The sample plugin registers a command and defines its title and command name. With this information VS Code can show the command in the command palette. It doesn’t yet need to load the plugin.
-* `src/extension.ts` - this is the main file where you will provide the implementation of your command.
-  * The file exports one function, `activate`, which is called the very first time your extension is activated (in this case by executing the command). Inside the `activate` function we call `registerCommand`.
-  * We pass the function containing the implementation of the command as the second parameter to `registerCommand`.
+- Node.js 16+
+- VS Code 1.81.1+
 
-## Get up and running straight away
+## Setup
 
-* Press `F5` to open a new window with your extension loaded.
-* Run your command from the command palette by pressing (`Ctrl+Shift+P` or `Cmd+Shift+P` on Mac) and typing `Hello World`.
-* Set breakpoints in your code inside `src/extension.ts` to debug your extension.
-* Find output from your extension in the debug console.
+```bash
+yarn install
+```
 
-## Make changes
+## Compile
 
-* You can relaunch the extension from the debug toolbar after changing code in `src/extension.ts`.
-* You can also reload (`Ctrl+R` or `Cmd+R` on Mac) the VS Code window with your extension to load your changes.
+```bash
+yarn compile
+# or watch mode:
+yarn watch
+```
 
-## Explore the API
+The `compile` script automatically cleans the `out/` folder before building.
 
-* You can open the full set of our API when you open the file `node_modules/@types/vscode/index.d.ts`.
+## Package
 
-## Run tests
+```bash
+npx -y @vscode/vsce package
+```
 
-* Open the debug viewlet (`Ctrl+Shift+D` or `Cmd+Shift+D` on Mac) and from the launch configuration dropdown pick `Extension Tests`.
-* Press `F5` to run the tests in a new window with your extension loaded.
-* See the output of the test result in the debug console.
-* Make changes to `src/test/suite/extension.test.ts` or create new test files inside the `test/suite` folder.
-  * The provided test runner will only consider files matching the name pattern `**.test.ts`.
-  * You can create folders inside the `test` folder to structure your tests any way you want.
+This generates a `.vsix` file in the project root. Install it via `Extensions: Install from VSIX...` in the command palette.
 
-## Go further
+## Debug
 
-* [Follow UX guidelines](https://code.visualstudio.com/api/ux-guidelines/overview) to create extensions that seamlessly integrate with VS Code's native interface and patterns.
- * Reduce the extension size and improve the startup time by [bundling your extension](https://code.visualstudio.com/api/working-with-extensions/bundling-extension).
- * [Publish your extension](https://code.visualstudio.com/api/working-with-extensions/publishing-extension) on the VS Code extension marketplace.
- * Automate builds by setting up [Continuous Integration](https://code.visualstudio.com/api/working-with-extensions/continuous-integration).
+1. Press `F5` to open a new VS Code window with the extension loaded
+2. Set breakpoints in `src/extension.ts` or `src/file-sync.ts`
+3. View logs in the **FileSync Output** panel
+
+## Project Structure
+
+```text
+src/
+  extension.ts          -- Entry point: activate/deactivate lifecycle
+  file-extension.ts     -- VS Code integration: commands, UI, config loading
+  file-sync.ts          -- Core sync engine: file copy, watch, delete, retry
+  fsconfig_default.json -- Template for new config files
+```
+
+## Architecture
+
+### Activation Flow
+
+1. VS Code checks `activationEvents: ["workspaceContains:fsconfig.json"]`
+2. If no `fsconfig.json` at workspace root, extension does not activate
+3. On activation, config is parsed but **no watchers are started**
+4. User triggers sync manually (button click) or starts watchers via command
+
+### Sync Modes
+
+**Manual mode** (default):
+
+- Click editor title button to sync one file
+- Click status bar button to sync all files
+- No `fs.watch()` handles, no background overhead
+
+**Watcher mode** (opt-in via `Start all synchronizing` command):
+
+- `fs.watch()` monitors source directories recursively
+- File changes trigger automatic copy to destination
+- Watchers are cleaned up on stop or deactivate
+
+### File Copy Strategy
+
+1. Check if source file is readable (`fs.openSync` with `"r"`)
+2. Copy with `fs.copyFileSync`
+3. On failure, retry up to 5 times with 200ms/400ms/600ms/800ms/1000ms backoff
+4. Files are only copied when source `mtime` is newer than destination
+
+## Go Further
+
+- [VS Code UX Guidelines](https://code.visualstudio.com/api/ux-guidelines/overview)
+- [Bundling Extensions](https://code.visualstudio.com/api/working-with-extensions/bundling-extension)
+- [Publishing Extensions](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)
+- [Continuous Integration](https://code.visualstudio.com/api/working-with-extensions/continuous-integration)
